@@ -10,9 +10,15 @@ dotenv.config();
 
 //==================== SCHEMAS ====================\\
 
-const userSchema = Joi.object({
+const signinSchema = Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().required(),
+});
+
+const signupSchema = Joi.object({
+    name: Joi.string().min(2).max(25).trim(false).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).max(18).alphanum().required(),
 });
 
 //==================== SERVER ====================\\
@@ -34,9 +40,11 @@ try {
     console.log(chalk.red.bgRed(`ERRO AO CONECTAR AO BANCO: ${err}`));
 }
 
+//=================== ROUTES ====================\\
+
 app.post("/signin", async (req, res) => {
-    const {error, value} = userSchema.validate(req.body, { abortEarly: false });
-    if (error) return res.send(error);
+    const {error, value} = signinSchema.validate(req.body, { abortEarly: false });
+    if (error) return res.status(400).send(error);
 
     try {
         const user = await db.collection("users").findOne({ email: value.email, password: value.password});
@@ -45,6 +53,22 @@ app.post("/signin", async (req, res) => {
         res.send(user.name);
     } catch (err) {
         console.log(chalk.red(`ERRO AO TENTAR LOGAR: ${err}`));
+        res.status(500).send("Desculpe, parece que houve um problema no servidor!");
+    }
+});
+
+app.post("/signup", async (req, res) => {
+    const {error, value} = signupSchema.validate(req.body);
+    if (error) return res.status(400).send(error);
+
+    try {
+        const emailAlredUsed = await db.collection("users").findOne({email: value.email});
+        if (emailAlredUsed) return res.status(409).send("Email já cadastrado!");
+
+        await db.collection("users").insertOne({...value});
+        res.status(201).send("Novo usuário cadastrado com sucesso!"); 
+    } catch (err) {
+        console.log(chalk.red(`ERRO AO TENTAR CADASTRAR: ${err}`));
         res.status(500).send("Desculpe, parece que houve um problema no servidor!");
     }
 });
