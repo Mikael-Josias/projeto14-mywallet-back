@@ -8,6 +8,15 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+//==================== SCHEMAS ====================\\
+
+const userSchema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required(),
+});
+
+//==================== SERVER ====================\\
+
 const PORT = 5000;
 
 const app = express();
@@ -24,6 +33,21 @@ try {
 } catch (err) {
     console.log(chalk.red.bgRed(`ERRO AO CONECTAR AO BANCO: ${err}`));
 }
+
+app.post("/signin", async (req, res) => {
+    const {error, value} = userSchema.validate(req.body, { abortEarly: false });
+    if (error) return res.send(error);
+
+    try {
+        const user = await db.collection("users").findOne({ email: value.email, password: value.password});
+        if (!user) return res.status(404).send("Usuário não existe!");
+
+        res.send(user.name);
+    } catch (err) {
+        console.log(chalk.red(`ERRO AO TENTAR LOGAR: ${err}`));
+        res.status(500).send("Desculpe, parece que houve um problema no servidor!");
+    }
+});
 
 app.listen(PORT, () => {
     console.log(chalk.black.bgGreenBright("🚀!SERVER INICIALIZADO!🚀"));
