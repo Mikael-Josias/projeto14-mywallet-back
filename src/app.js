@@ -107,6 +107,21 @@ app.post("/entries", async (req, res) => {
     }
 });
 
+app.get("/entries", async (req, res) => {
+    const userId = req.headers.userid;
+    if (!userId) return res.status(400).send("Não foi fornecido um usuário!"); 
+    
+    try {
+        const entries = await db.collection("entries").find({userId: ObjectId(userId)}).toArray();
+        if (!entries) return res.status(404).send("Não há entradas ou saidas para este usuário!");
+
+        res.send(entries);
+    } catch (err) {
+        console.log(chalk.red(`ERRO AO TENTAR RETORNAR TODAS AS ENTRADAS/SAIDAS: ${err}`));
+        res.status(500).send("Desculpe, parece que houve um problema no servidor!");
+    }
+});
+
 app.listen(PORT, () => {
     console.log(chalk.black.bgGreenBright("🚀!SERVER INICIALIZADO!🚀"));
 });
