@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import Joi from "joi";
 import chalk from "chalk";
 import bcrypt from 'bcrypt';
+import { v4 as uuid } from 'uuid';
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -55,10 +56,17 @@ app.post("/signin", async (req, res) => {
     if (error) return res.status(400).send(error);
 
     try {
-        const user = await db.collection("users").findOne({ email: value.email, password: value.password});
-        if (!user) return res.status(404).send("Usuário não existe!");
+        const user = await db.collection("users").findOne({email: value.email});
+        if (!user || !bcrypt.compareSync(value.password, user.password)) return res.status(404).send("Usuário não existe!");
 
-        res.send(user.name);
+        const token = uuid();
+
+        await db.collection("sessions").insertOne({
+            userId: user._id,
+            token,
+        });
+
+        res.send({name: user.name, token});
     } catch (err) {
         console.log(chalk.red(`ERRO AO TENTAR LOGAR: ${err}`));
         res.status(500).send("Desculpe, parece que houve um problema no servidor!");
