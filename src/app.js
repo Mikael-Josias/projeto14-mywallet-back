@@ -119,11 +119,14 @@ app.post("/entries", async (req, res) => {
 });
 
 app.get("/entries", async (req, res) => {
-    const userId = req.headers.userid;
-    if (!userId) return res.status(400).send("Não foi fornecido um usuário!"); 
-    
+    let auth = req.headers.authorization;
+    if (!auth) return res.status(400).send("Não foi fornecido um usuário!"); 
+    auth = auth.replace("Bearer ", "");
     try {
-        const entries = await db.collection("entries").find({userId: ObjectId(userId)}).toArray();
+        const session = await db.collection("sessions").findOne({token: auth});
+        if (!session) return res.status(404).send("Usuário não está logado!");
+
+        const entries = await db.collection("entries").find({userId: ObjectId(session.userId)}).toArray();
         if (!entries) return res.status(404).send("Não há entradas ou saidas para este usuário!");
 
         res.send(entries);
