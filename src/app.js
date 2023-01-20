@@ -4,6 +4,7 @@ import { MongoClient, ObjectId } from "mongodb";
 import dayjs from "dayjs";
 import Joi from "joi";
 import chalk from "chalk";
+import bcrypt from 'bcrypt';
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -18,7 +19,7 @@ const signinSchema = Joi.object({
 const signupSchema = Joi.object({
     name: Joi.string().min(2).max(25).trim(false).required(),
     email: Joi.string().email().required(),
-    password: Joi.string().min(6).max(18).alphanum().required(),
+    password: Joi.string().max(18).alphanum().required(),
 });
 
 const entriesSchema = Joi.object({
@@ -71,6 +72,8 @@ app.post("/signup", async (req, res) => {
     try {
         const emailAlredUsed = await db.collection("users").findOne({email: value.email});
         if (emailAlredUsed) return res.status(409).send("Email já cadastrado!");
+
+        value.password = bcrypt.hashSync(value.password, 10);
 
         await db.collection("users").insertOne({...value});
         res.status(201).send("Novo usuário cadastrado com sucesso!"); 
