@@ -24,7 +24,6 @@ const signupSchema = Joi.object({
 });
 
 const entriesSchema = Joi.object({
-    userId: Joi.string().required(),
     description: Joi.string().required(),
     price: Joi.number().required(),
     type: Joi.string().valid("incoming", "outgoing").required(),
@@ -92,23 +91,31 @@ app.post("/signup", async (req, res) => {
 });
 
 app.post("/entries", async (req, res) => {
-    const {error, value} = entriesSchema.validate({
-        userId: req.headers.userid,
-        description: req.body.description,
-        price: Number(req.body.price),
-        type: req.body.type
-    },{ abortEarly: false });
-    if (error) return res.status(400).send(error);
+    let auth = req.headers.authorization;
+    if(!auth) return res.status(404).send("Usuário não existe!");
+    auth = auth.replace("Bearer ", "");
 
     try {
-        const user = await db.collection("users").findOne({ _id: ObjectId(value.userId)});
+        const session = await db.collection("sessions").findOne({ token: auth});
+        if (!session) return res.status(404).send("Usuário não está logado!");
+
+        const user = await db.collection("users").findOne({ _id: session.userId});
         if (!user) return res.status(404).send("Usuário não existe!");
 
+        const {error, value} = entriesSchema.validate({
+            description: req.body.description,
+            price: Number(req.body.value),
+            type: req.body.type,
+        },{ abortEarly: false });
+        if (error) return res.status(400).send(error);
+    
+
         await db.collection("entries").insertOne({ 
-            userId: ObjectId(value.userId),
+            userId: user._id,
             description: value.description,
             price: value.price,
-            type: value.type
+            type: value.type,
+            date: dayjs().format("DD/MM"),
         });
 
         res.status(201).send("Nova entrada cadastrada com sucesso!");
@@ -122,11 +129,12 @@ app.get("/entries", async (req, res) => {
     let auth = req.headers.authorization;
     if (!auth) return res.status(400).send("Não foi fornecido um usuário!"); 
     auth = auth.replace("Bearer ", "");
+
     try {
         const session = await db.collection("sessions").findOne({token: auth});
         if (!session) return res.status(404).send("Usuário não está logado!");
 
-        const entries = await db.collection("entries").find({userId: ObjectId(session.userId)}).toArray();
+        const entries = await db.collection("entries").find({userId: session.userId}).toArray();
         if (!entries) return res.status(404).send("Não há entradas ou saidas para este usuário!");
 
         res.send(entries);
